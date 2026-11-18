@@ -24,7 +24,7 @@ function analyse(text){
      score+=32;reasons.push("Brend nomiga o'xshatilgan domen");
    }
   }catch{
-   if(/(?:^|\.)xn--/i.test(m)){score+=30;reasons.push("Punycode yoki noto'g'ri tuzilgan o'xshatma domen");}
+   if(/xn--/i.test(m)){score+=30;reasons.push("Punycode yoki noto'g'ri tuzilgan o'xshatma domen");}
   }
  }
  const otp=/(?:sms\s*kod|tasdiqlash\s*kod|bir\s*martalik\s*kod|parol|password|2fa|otp|cvv|pin\s*kod|код\s*из\s*смс|пароль|код\s*подтверждения)/iu;

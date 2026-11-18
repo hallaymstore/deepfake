@@ -23,7 +23,9 @@ function analyse(text){
    if(/(?:telegram|google|instagram|bank|paypal|uzum|payme|click)-(?:login|verify|secure)/i.test(host)){
      score+=32;reasons.push("Brend nomiga o'xshatilgan domen");
    }
-  }catch{}
+  }catch{
+   if(/(?:^|\.)xn--/i.test(m)){score+=30;reasons.push("Punycode yoki noto'g'ri tuzilgan o'xshatma domen");}
+  }
  }
  const otp=/(?:sms\s*kod|tasdiqlash\s*kod|bir\s*martalik\s*kod|parol|password|2fa|otp|cvv|pin\s*kod|код\s*из\s*смс|пароль|код\s*подтверждения)/iu;
  const urgent=/(?:tezda|zudlik\s*bilan|shoshil|bloklanad|yopilad|darhol|срочно|немедленно|urgent|immediately|account\s*suspended)/iu;

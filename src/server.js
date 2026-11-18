@@ -17,8 +17,8 @@ const key=process.env.SESSION_ENCRYPTION_KEY||"";
 const apiId=Number(process.env.TELEGRAM_API_ID||0);
 const apiHash=process.env.TELEGRAM_API_HASH||"";
 const telegramReady=Number.isSafeInteger(apiId)&&apiId>0&&/^[a-f0-9]{32}$/i.test(apiHash);
-if(!mongoUri.startsWith("mongodb"))throw Error("MONGODB_URI is required");
-if(!/^[a-f0-9]{64}$/i.test(key))throw Error("SESSION_ENCRYPTION_KEY must be 64 hex characters");
+const configured=Boolean(mongoUri.startsWith("mongodb")&&/^[a-f0-9]{64}$/i.test(key));
+
 const isProd=process.env.NODE_ENV==="production";
 const origin=process.env.PUBLIC_ORIGIN||"http://localhost:3000";
 if(isProd&&!origin.startsWith("https://"))throw Error("HTTPS PUBLIC_ORIGIN required in production");
@@ -66,6 +66,7 @@ function clear(res,name){res.clearCookie(name,{httpOnly:true,secure:isProd,sameS
 function error(res,status,message){return res.status(status).json({error:message});}
 let db,engine;
 async function signedIn(req,res,next){
+ if(!db)return error(res,503,"MongoDB sozlanmagan");
  const token=getCookie(req,authCookie);
  if(!/^[a-f0-9]{64}$/.test(token))return error(res,401,"Avval Telegram akkauntni ulang");
  const session=await db.collection("webSessions").findOne({tokenHash:hash(token),expiresAt:{$gt:new Date()}});
@@ -78,7 +79,7 @@ function broadcast(id,event){
  catch{set.delete(res);}}
 }
 app.get("/api/health",(req,res)=>res.json({
- ok:true,service:"hallaym-shield",database:dbName,telegramConfigured:telegramReady,
+ ok:true,service:"hallaym-shield",database:dbName,telegramConfigured:telegramReady&&configured,setupRequired:!configured||!telegramReady,
  scanner:"metadata-only",mode:"mvp"
 }));
 app.post("/api/check",(req,res)=>{
@@ -87,7 +88,7 @@ app.post("/api/check",(req,res)=>{
  res.json({...analyse(txt),method:"rule-based",note:"AI yoki antivirus xulosasi emas"});
 });
 app.post("/api/connect/start",async(req,res)=>{
- if(!telegramReady)return error(res,503,"Telegram API_ID va API_HASH hali serverda sozlanmagan");
+ if(!configured||!telegramReady)return error(res,503,"Telegram va MongoDB API kalitlari Render Environment sozlamalarida to'ldirilishi kerak");
  if(req.body?.consent!==true)return error(res,400,"Shaxsiy akkauntga kirish huquqini aniq tasdiqlang");
  let guest=getCookie(req,guestCookie);
  if(!/^[a-f0-9]{64}$/.test(guest))guest=crypto.randomBytes(32).toString("hex");
@@ -138,6 +139,7 @@ app.post("/api/connect/start",async(req,res)=>{
  res.json({status:"connecting"});
 });
 app.get("/api/connect/status",async(req,res)=>{
+ if(!db)return res.json({status:"idle",telegramConfigured:false,setupRequired:true});
  const token=getCookie(req,authCookie);
  if(/^[a-f0-9]{64}$/.test(token)){
   const session=await db.collection("webSessions").findOne({tokenHash:hash(token),expiresAt:{$gt:new Date()}});
@@ -231,5 +233,17 @@ async function main(){
  const stop=async()=>{server.close();await engine.stopAll();await client.close();process.exit(0);};
  process.once("SIGINT",stop);process.once("SIGTERM",stop);
 }
-if(require.main===module)main().catch(e=>{console.error("Startup failed:",e.message);process.exit(1);});
+if(require.main===module){
+ if(!configured){
+  const port=Number(process.env.PORT||3000);
+  app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD setup mode: MongoDB and encryption key are not configured"));
+ }else{
+  main().catch(e=>{
+   console.error("Database startup failed:",e.message);
+   db=null;engine=null;
+   const port=Number(process.env.PORT||3000);
+   app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD fallback: local link checker only"));
+  });
+ }
+}
 module.exports={app};

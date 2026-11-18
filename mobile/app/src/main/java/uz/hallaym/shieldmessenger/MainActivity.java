@@ -25,6 +25,8 @@ public final class MainActivity extends Activity {
  private static final int GREY=0xffa5c2bd;
  private static final int RED=0xffff9696;
  private Client client;
+ private int apiId;
+ private String apiHash;
  private LinearLayout view;
  private boolean signedIn=false;
  private long currentChat=0;
@@ -34,12 +36,42 @@ public final class MainActivity extends Activity {
   super.onCreate(bundle);
   screen("HALLAYM SHIELD Messenger");
   info("Telefonning o'zida Telegram TDLib orqali ishlaydigan boshlang'ich klient. Xabarlar Render serverga uzatilmaydi.");
-  if(BuildConfig.TELEGRAM_API_ID==0 || BuildConfig.TELEGRAM_API_HASH.length()!=32){
-    info("Telegram API_ID/API_HASH Android build uchun berilmagan. APK inspektori ishlaydi; Telegram login uchun konfiguratsiya kerak.");
-    button("APK faylni tekshirish",this::chooseApk);
-    return;
+  apiId=BuildConfig.TELEGRAM_API_ID;
+  apiHash=BuildConfig.TELEGRAM_API_HASH;
+  if(apiId==0 || apiHash.length()!=32){
+   apiId=getPreferences(MODE_PRIVATE).getInt("dev_api_id",0);
+   apiHash=getPreferences(MODE_PRIVATE).getString("dev_api_hash","");
   }
-  info("Telegram ulanishi tayyorlanmoqda…");
+  if(apiId<=0 || apiHash.length()!=32){
+   configureApi();
+   return;
+  }
+  startClient();
+ }
+ private void configureApi(){
+  screen("Telegram dasturchi sozlamasi");
+  info("Bu test yig'ilmasi: my.telegram.org saytidan olingan API ID va API HASHni shu telefonning o'zida kiriting. Oddiy foydalanuvchiga mo'ljallangan versiyada bular build vaqtida kiritiladi.");
+  EditText idText=new EditText(this);
+  idText.setHint("API ID");idText.setInputType(InputType.TYPE_CLASS_NUMBER);
+  idText.setTextColor(Color.WHITE);view.addView(idText);
+  EditText hashText=new EditText(this);
+  hashText.setHint("API HASH (32 belgi)");hashText.setSingleLine();
+  hashText.setTextColor(Color.WHITE);view.addView(hashText);
+  button("Telegram klientini boshlash",()->{
+   try{
+    int n=Integer.parseInt(idText.getText().toString().trim());
+    String h=hashText.getText().toString().trim();
+    if(n<=0||!h.matches("[0-9a-fA-F]{32}"))throw new IllegalArgumentException();
+    apiId=n;apiHash=h;
+    getPreferences(MODE_PRIVATE).edit().putInt("dev_api_id",n).putString("dev_api_hash",h).apply();
+    hashText.setText("");startClient();
+   }catch(Exception ex){info("API ID raqam, HASH esa 32 ta hexadecimal belgi bo'lishi kerak.");}
+  });
+  button("📦 Faqat APKni tekshirish",this::chooseApk);
+ }
+ private void startClient(){
+  screen("Telegramga ulanish");
+  info("Telegram TDLib sessiyasi faqat shu telefonda. Chat matnlari Render serveriga yuborilmaydi.");
   try{
    System.loadLibrary("tdjni");
    client=Client.create(this::update,null,null);
@@ -79,8 +111,8 @@ public final class MainActivity extends Activity {
    params.useChatInfoDatabase=true;
    params.useMessageDatabase=true;
    params.useSecretChats=false;
-   params.apiId=BuildConfig.TELEGRAM_API_ID;
-   params.apiHash=BuildConfig.TELEGRAM_API_HASH;
+   params.apiId=apiId;
+   params.apiHash=apiHash;
    params.systemLanguageCode="uz";
    params.deviceModel=android.os.Build.MODEL;
    params.systemVersion=android.os.Build.VERSION.RELEASE;

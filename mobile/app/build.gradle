@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' }
+def apiId = (System.getenv("TELEGRAM_API_ID") ?: "0").replaceAll("[^0-9]", "")
+def apiHash = (System.getenv("TELEGRAM_API_HASH") ?: "").replaceAll("[^a-fA-F0-9]", "")
+android {
+  namespace 'uz.hallaym.shieldmessenger'
+  compileSdk 35
+  defaultConfig {
+    applicationId 'uz.hallaym.shieldmessenger'
+    minSdk 26
+    targetSdk 35
+    versionCode 1
+    versionName '0.1.0'
+    buildConfigField 'int', 'TELEGRAM_API_ID', apiId ? apiId : '0'
+    buildConfigField 'String', 'TELEGRAM_API_HASH', '"'+apiHash+'"'
+  }
+  buildFeatures { buildConfig true }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+  implementation 'io.github.tdlib-android:core:0.1.1'
+  testImplementation 'junit:junit:4.13.2'
+}

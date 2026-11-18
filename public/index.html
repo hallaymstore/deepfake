@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07141a">
+  <meta name="description" content="HALLAYM SHIELD — Telegram xabarlari va havolalarni shubhali belgilar bo'yicha tekshirish.">
+  <title>HALLAYM SHIELD — Telegram Security</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+ <div class="ambient one"></div><div class="ambient two"></div>
+ <div class="shell">
+  <aside class="side">
+   <div class="brand"><div class="logo">⬡</div><div><b>HALLAYM <em>SHIELD</em></b><small>CYBER INTELLIGENCE / MVP</small></div></div>
+   <div class="group-label">BOSHQARUV</div>
+   <a class="nav active" href="#overview">◈ <span>Boshqaruv paneli</span></a>
+   <a class="nav" href="#telegram">◉ <span>Telegram himoyasi</span></a>
+   <a class="nav" href="#scanner">⌕ <span>Havola tekshiruvi</span></a>
+   <a class="nav" href="#events">▤ <span>Xavf tarixi</span></a>
+   <div class="side-bottom">
+    <div class="info">● MVP — qoidaviy tahlil<br><span>To'liq antivirus yoki AI deepfake aniqlash hali mavjud emas</span></div>
+    <small>HALLAYM SHIELD © 2026</small>
+   </div>
+  </aside>
+  <main>
+   <header class="top">
+    <div class="breadcrumb">SECURITY OPERATIONS <span>/</span> LIVE PROTECTION</div>
+    <div class="top-right"><span id="server-status" class="indicator">Server tekshirilmoqda…</span><span class="avatar">HS</span></div>
+   </header>
+   <div class="content">
+    <section class="hero" id="overview">
+     <div>
+      <div class="eyebrow">✦ SHAXSIY RAQAMLI XAVFSIZLIK MARKAZI</div>
+      <h1>Sizning xabarlaringiz.<br><span>Bizning himoyamiz.</span></h1>
+      <p>Telegram akkauntingizni ixtiyoriy QR tasdiqlash orqali ulang. Yangi kiruvchi shaxsiy xabarlar va fayl metama'lumotlari shubhali belgilar bo'yicha tekshiriladi.</p>
+      <a href="#telegram" class="primary link-btn">Telegramni ulash <span>↗</span></a>
+     </div>
+     <div class="hero-visual"><div class="orb"><div class="orb-inner">⬡<small>SHIELD</small></div></div><span class="orb-tag">RULE-BASED<br>DETECTION</span></div>
+    </section>
+    <div class="metrics">
+     <div class="metric"><div class="metric-top"><span>JAMI TAHLILLAR</span>▤</div><b id="count-total">—</b><small>7 kun ichidagi hodisalar</small></div>
+     <div class="metric"><div class="metric-top"><span>YUQORI XAVF</span><span class="red">●</span></div><b id="count-high">—</b><small>Tekshirish tavsiya qilinadi</small></div>
+     <div class="metric"><div class="metric-top"><span>OGOHLANTIRISH</span><span class="gold">●</span></div><b id="count-warning">—</b><small>Shubhali belgilar topilgan</small></div>
+     <div class="metric"><div class="metric-top"><span>ODDIY HOLAT</span><span class="mint">●</span></div><b id="count-low">—</b><small>Risk belgisi kam (kafolat emas)</small></div>
+    </div>
+    <div class="split">
+     <section class="panel" id="telegram">
+      <div class="panel-head"><div><small class="eyebrow">ACCOUNT PROTECTION</small><h2>Telegram monitoringi</h2></div><span class="chip" id="connection-chip">ULANMAGAN</span></div>
+      <p class="muted">Bu oddiy Telegram bot emas. Faqat o'zingiz tasdiqlagan akkauntning yangi shaxsiy kiruvchi xabarlari tekshiriladi. Secret Chat, guruh va kanal xabarlari hozircha qamrab olinmaydi.</p>
+      <div id="disconnected-view">
+       <label class="agree"><input type="checkbox" id="consent"><span>Telegram akkauntimga kirish huquqi berilishini, monitoring uchun sessiya shifrlanib saqlanishini va uni istalgan vaqtda bekor qilishim mumkinligini tushunaman.</span></label>
+       <button id="connect" class="primary">🔒 QR orqali ulash</button>
+       <div id="qr-block" class="qr-block hidden"><img id="qr" alt="Telegram QR ulanish"><small>Telegram → Sozlamalar → Qurilmalar → Desktop qurilmani ulash</small></div>
+       <p class="muted tiny">Tasdiqlash kodini yoki Telegram parolini bu saytga kiritmang.</p>
+      </div>
+      <div id="connected-view" class="hidden">
+       <div class="identity"><div class="person">✓</div><div><b id="account-name">Telegram akkaunti</b><small id="account-user">Ulangan</small></div></div>
+       <div class="switch-row"><div><b>Jonli monitoring</b><small>Yangi kiruvchi shaxsiy xabarlarni tahlil qilish</small></div><input type="checkbox" id="monitoring" checked></div>
+       <div class="actions"><button class="secondary" id="logout">Paneldan chiqish</button><button class="danger" id="disconnect">Akkauntni butunlay uzish</button></div>
+      </div>
+     </section>
+     <section class="panel" id="scanner">
+      <div class="panel-head"><div><small class="eyebrow">RISK ENGINE V1</small><h2>Havola va xabar tahlili</h2></div><span class="chip">DEMO</span></div>
+      <p class="muted">Matnni nusxalab tekshiring. Qoidaviy tahlil fishing belgilarini qidiradi, lekin xavfsizlikni kafolatlamaydi.</p>
+      <label for="input-text" class="field-label">TEKSHIRILADIGAN XABAR / URL</label>
+      <textarea id="input-text" maxlength="10000" placeholder="Masalan: Zudlik bilan https://example.xyz/login orqali SMS kodni yuboring..." rows="5"></textarea>
+      <button class="primary" id="scan">⌕ Xavfni tahlil qilish</button>
+      <div class="scan-result hidden" id="scan-result"><b id="scan-title"></b><div class="bar"><span id="scan-bar"></span></div><ul id="scan-reasons"></ul><small>Ushbu natija AI, antivirus yoki URL reputatsiya skani emas.</small></div>
+     </section>
+    </div>
+    <section class="panel" id="events">
+     <div class="panel-head"><div><small class="eyebrow">SECURITY TIMELINE</small><h2>Oxirgi xavf hodisalari</h2></div><button class="secondary slim" id="refresh">↻ Yangilash</button></div>
+     <div id="events-list" class="events-empty">Akkaunt ulangach kuzatuv natijalari shu yerda paydo bo'ladi.</div>
+    </section>
+    <section class="footer-note">HALLAYM SHIELD — mustaqil startap prototipi, Telegram'ning rasmiy mahsuloti emas. Xabarlar matni va fayllar tarkibi risk tarixida saqlanmaydi. Fayl mazmuni skan qilinmaydi; deepfake AI va Chrome extension bu versiyada mavjud emas.</section>
+    <div id="notice" class="notice hidden" role="status"></div>
+   </div>
+  </main>
+ </div>
+</body>
+</html>

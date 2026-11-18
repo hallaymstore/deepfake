@@ -1,0 +1,22 @@
+{
+  "name": "hallaym-shield",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Opt-in MTProto Telegram threat monitoring MVP",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/server.js && node --check src/telegram.js && node --check src/analyzer.js"
+  },
+  "engines": {"node": ">=20"},
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "helmet": "^8.3.0",
+    "mongodb": "^6.20.0",
+    "qrcode": "^1.5.4",
+    "teleproto": "^1.233.0"
+  }
+}

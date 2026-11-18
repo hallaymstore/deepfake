@@ -1,0 +1,10 @@
+"use strict";
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const crypto=require("node:crypto");
+const {analyse,inspect,encrypt,decrypt}=require("../src/analyzer");
+test("ordinary message stays low",()=>assert.equal(analyse("Assalomu alaykum").level,"low"));
+test("urgent OTP lure is flagged",()=>assert.notEqual(analyse("Tezda SMS kodni yuboring").level,"low"));
+test("Punycode address is flagged",()=>assert.ok(analyse("https://xn--payme-abc.com/login").score>=25));
+test("executable attachment is high risk",()=>assert.equal(inspect("",{media:{document:{size:100,mimeType:"application/octet-stream",attributes:[{fileName:"download.exe"}]}}}).level,"high"));
+test("AES-GCM session encryption roundtrip",()=>{const k=crypto.randomBytes(32).toString("hex");const c=encrypt("private-session",k);assert.equal(decrypt(c,k),"private-session");assert.ok(!c.includes("private-session"));});

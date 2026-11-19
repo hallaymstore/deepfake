@@ -4,6 +4,7 @@ const {Telegraf}=require("telegraf");
 const {analyse}=require("./analyzer");
 const {inspectApkBuffer,riskText,MAX_APK_BYTES}=require("./apk-inspect");
 const REASONS_LIMIT=5;
+const BOT_DOWNLOAD_LIMIT=19*1024*1024; // Public Telegram getFile has a strict 20 MB cap
 /** Inspect visible text, Telegram text_link entities and available inline button URLs. */
 function extractScanText(message){
  if(!message)return "";
@@ -22,6 +23,7 @@ function extractScanText(message){
 
 function reportUrl(text){
  const value=analyse(text);
+ if(value.score===0 && !/(?:https?:\/\/|www\.)/i.test(text))return "ℹ️ Bu xabarda havola yoki aniq firibgarlik belgisi topilmadi. APK fayl yoki shubhali havolani yuboring; oddiy matn uchun xavfsizlik xulosasi berilmaydi.";
  const label=value.level==="high"?"🔴 Yuqori xavf belgisi":value.level==="warning"?"🟠 Shubhali belgilar":"⚪ Aniq xavf belgisi topilmadi";
  return label+"\nXavf bahosi: "+value.score+"/100\n"+
  (value.reasons.length?"Sabablar: "+value.reasons.slice(0,REASONS_LIMIT).join("; "):"Faqat cheklangan qoida asosida tekshirildi")+
@@ -36,7 +38,7 @@ function isRateLimited(id){
  return obj.count>12;
 }
 async function telegramFileBuffer(bot,fileId,size){
- if(size>MAX_APK_BYTES)throw Error("Bot orqali to'liq tahlil limiti 18 MB. Kattaroq faylni faqat metadata bo'yicha tekshiring.");
+ if(size>BOT_DOWNLOAD_LIMIT)throw Error("Bot API 20 MB cheklovi. Katta APKni maxsus veb skanerga yuklang.");
  const href=(await bot.telegram.getFileLink(fileId)).toString();
  if(!href.startsWith("https://api.telegram.org/"))throw Error("Telegram yuklash manzili noto'g'ri");
  const abort=new AbortController();
@@ -50,7 +52,7 @@ async function telegramFileBuffer(bot,fileId,size){
    const {done,value}=await reader.read();
    if(done)break;
    bytes+=value.length;
-   if(bytes>MAX_APK_BYTES){await reader.cancel();throw Error("APK hajmi limitdan oshdi");}
+   if(bytes>BOT_DOWNLOAD_LIMIT){await reader.cancel();throw Error("Bot API fayl limiti oshdi");}
    chunks.push(Buffer.from(value));
   }
   return Buffer.concat(chunks,bytes);
@@ -143,11 +145,17 @@ async function createSecurityBot({db=null,origin,engine=null,token}){
    if(!isApk)answer+="Bu fayl APK emas. Mazmuni hozircha antivirus bilan tekshirilmaydi.";
    else{
     answer+="⚠️ APK — o'rnatishdan oldin tekshirilishi kerak.\n";
-    try{
-     const bytes=await telegramFileBuffer(bot,document.file_id,fileSize);
-     const result=await inspectApkBuffer(bytes,fileName);
-     answer+=riskText(result);
-    }catch(e){answer+="Faylni chuqur tekshirish yakunlanmadi: "+String(e.message).slice(0,140);}
+    if(fileSize>BOT_DOWNLOAD_LIMIT){
+     answer+="\n📦 Fayl "+(fileSize/1024/1024).toFixed(1)+" MB. Telegram Bot API 20 MBdan kattasini yuklay olmaydi.\n"+
+       "🔎 55 MBgacha bo'lgan APKni o'rnatmasdan tahlil qilish: "+origin+"/scan-upload.html\n"+
+       "Faylni shu sahifada o'zingiz tanlaysiz; serverda saqlanmaydi.";
+    }else{
+     try{
+      const bytes=await telegramFileBuffer(bot,document.file_id,fileSize);
+      const result=await inspectApkBuffer(bytes,fileName);
+      answer+=riskText(result);
+     }catch(e){answer+="Fayl tahlili yakunlanmadi: "+String(e.message).slice(0,120);}
+    }
    }
   }
   if(!answer)answer="Bu xabarda tekshiriladigan matn, havola yoki fayl topilmadi.";

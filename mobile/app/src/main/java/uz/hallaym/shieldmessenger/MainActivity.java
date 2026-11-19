@@ -85,7 +85,7 @@ public final class MainActivity extends Activity {
     if(doc!=null){filename=doc.fileName;mime=doc.mimeType;}
    }
    ThreatRules.Finding finding=ThreatRules.message(body,filename,mime);
-   if(finding.score>=65){
+   if(finding.score>=25){
     runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Shubhali Telegram xabari")
        .setMessage(String.join("\n",finding.reasons)+"\n\nFaylni o'rnatmang. Bu faqat dastlabki xavf belgisi.")
        .setPositiveButton("Tushunarli",null).show());

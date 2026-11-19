@@ -50,7 +50,13 @@ function mediaInfo(msg){
 function inspect(text,msg){
  const base=analyse(text);const file=mediaInfo(msg);
  if(file){
-  if(extensions.has(file.extension)){base.score=Math.max(base.score,file.extension==="apk"?65:80);base.reasons.push("Bajariluvchi yoki skript fayl turi");}
+  if(file.extension==="apk"||file.mime==="application/vnd.android.package-archive"){
+   base.score=Math.max(base.score,30);
+   base.reasons.push("APK ilova fayli: o'rnatishdan oldin tahlil qilish zarur, zararli ekanligi isbotlanmagan");
+  }else if(extensions.has(file.extension)){
+   base.score=Math.max(base.score,65);
+   base.reasons.push("Bajariluvchi yoki skript fayl turi");
+  }
   if(file.extension==="pdf" && file.mime!=="application/pdf"){base.score=Math.max(base.score,35);base.reasons.push("Fayl turi va MIME nomuvofiq");}
  }
  base.level=level(base.score);

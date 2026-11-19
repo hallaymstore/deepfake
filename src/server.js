@@ -10,6 +10,7 @@ const {TelegramClient}=require("teleproto");
 const {StringSession}=require("teleproto/sessions");
 const {analyse,encrypt,hash}=require("./analyzer");
 const {createTelegramEngine}=require("./telegram");
+const {createSecurityBot}=require("./security-bot");
 
 const mongoUri=process.env.MONGODB_URI||"";
 const dbName=process.env.MONGODB_DB||"hallaym_shield_deepfake";
@@ -64,7 +65,7 @@ function getCookie(req,name){
 function cookie(res,name,value,maxAge){res.cookie(name,value,{httpOnly:true,secure:isProd,sameSite:"strict",maxAge,path:"/"});}
 function clear(res,name){res.clearCookie(name,{httpOnly:true,secure:isProd,sameSite:"strict",path:"/"});}
 function error(res,status,message){return res.status(status).json({error:message});}
-let db,engine;
+let db,engine,securityBot;
 async function signedIn(req,res,next){
  if(!db)return error(res,503,"MongoDB sozlanmagan");
  const token=getCookie(req,authCookie);
@@ -74,13 +75,14 @@ async function signedIn(req,res,next){
  req.accountId=session.accountId;req.sessionHash=session.tokenHash;next();
 }
 function broadcast(id,event){
+ if(securityBot&&event.risk!=="low")securityBot.notify(id,event).catch(e=>console.error("Bot alert:",e?.message));
  const set=streams.get(id);if(!set)return;
  for(const res of set){try{res.write("event: risk\ndata: "+JSON.stringify(event)+"\n\n");}
  catch{set.delete(res);}}
 }
 app.get("/api/health",(req,res)=>res.json({
  ok:true,service:"hallaym-shield",database:dbName,telegramConfigured:telegramReady&&configured,setupRequired:!configured||!telegramReady,
- scanner:"metadata-only",mode:"mvp"
+ scanner:"metadata-only",botEnabled:Boolean(securityBot),mode:"mvp"
 }));
 app.post("/api/check",(req,res)=>{
  const txt=String(req.body?.text||"").slice(0,10000);
@@ -160,11 +162,23 @@ app.get("/api/connect/status",async(req,res)=>{
  }
  res.json({status:state.status,qr:state.qr,error:state.error||null,telegramConfigured:telegramReady});
 });
+app.post("/api/bot/pair",signedIn,async(req,res)=>{
+ const raw=String(req.body?.pair||"");
+ if(!/^[a-f0-9]{48}$/.test(raw))return error(res,400,"Ulash kodi noto'g'ri");
+ const ticket=await db.collection("botLinkRequests").findOneAndDelete({
+   tokenHash:hash(raw),telegramId:req.accountId,expiresAt:{$gt:new Date()}
+ });
+ if(!ticket)return error(res,403,"Havola muddati tugagan yoki boshqa akkaunt uchun");
+ const result=await db.collection("accounts").updateOne({telegramId:req.accountId},
+   {$set:{botChatId:ticket.botChatId,botLinkedAt:new Date()}});
+ if(!result.matchedCount)return error(res,404,"Ulangan akkaunt topilmadi");
+ res.json({ok:true});
+});
 app.get("/api/account",signedIn,async(req,res)=>{
  const a=await engine.accounts.findOne({telegramId:req.accountId});
  if(!a)return error(res,404,"Akkaunt topilmadi");
  res.json({telegramId:a.telegramId,displayName:a.displayName,username:a.username,
-   monitoring:a.monitoring,live:engine.active.has(req.accountId),
+   monitoring:a.monitoring,botLinked:Boolean(a.botChatId),live:engine.active.has(req.accountId),
    scanMode:"metadata-only",authExpired:a.authExpired||false});
 });
 app.get("/api/events",signedIn,async(req,res)=>{
@@ -228,9 +242,13 @@ async function main(){
  engine=createTelegramEngine({db,apiId,apiHash,key,retentionDays:process.env.EVENT_RETENTION_DAYS||7,onRisk:broadcast});
  if(telegramReady)await engine.restore();
  else console.warn("Telegram API variables missing; QR login disabled until configured");
+ if(process.env.TELEGRAM_BOT_TOKEN){
+  try{securityBot=await createSecurityBot({db,origin,engine,token:process.env.TELEGRAM_BOT_TOKEN});}
+  catch(err){console.error("Security bot unavailable:",err.message);}
+ }
  const port=Number(process.env.PORT||3000);
  const server=app.listen(port,"0.0.0.0",()=>console.log("HALLAYM SHIELD listening on",port));
- const stop=async()=>{server.close();await engine.stopAll();await client.close();process.exit(0);};
+ const stop=async()=>{server.close();securityBot?.stop();await engine.stopAll();await client.close();process.exit(0);};
  process.once("SIGINT",stop);process.once("SIGTERM",stop);
 }
 if(require.main===module){

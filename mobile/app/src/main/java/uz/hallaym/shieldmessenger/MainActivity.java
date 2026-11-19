@@ -193,20 +193,24 @@ public final class MainActivity extends Activity {
   view.addView(b);b.setOnClickListener(v->handler.run());
  }
  private void loadChats(){
-  if(!signedIn)return;currentChat=0;
-  screen("Telegram chatlari");
-  info("Xavfli APKlarni o'rnatishdan oldin qo'lda tahlil qiling. Bu Telegramning rasmiy ilovasi emas.");
-  button("📦 APKni tekshirish",this::chooseApk);
-  button("↻ Chatlarni yangilash",this::loadChats);
+  if(!signedIn||client==null)return;
+  currentChat=0;openedTitle="";
+  screen("Xabarlar");
+  info("Telegram akkauntingiz • barcha chatlar shu telefon orqali TDLib bilan ishlaydi");
+  button("📦 Yuklangan APKni tekshirish",this::chooseApk);
+  button("↻ Chatlar ro'yxatini yangilash",this::loadChats);
   TdApi.GetChats fn=new TdApi.GetChats();
-  fn.chatList=new TdApi.ChatListMain();fn.limit=40;
+  fn.chatList=new TdApi.ChatListMain();fn.limit=60;
   client.send(fn,result->{
    if(result instanceof TdApi.Chats){
-    TdApi.Chats chats=(TdApi.Chats)result;
-    for(long id:chats.chatIds){
-     client.send(new TdApi.GetChat(id),obj->{
-      if(obj instanceof TdApi.Chat){
-       TdApi.Chat chat=(TdApi.Chat)obj;
+    long[] ids=((TdApi.Chats)result).chatIds;
+    if(ids.length==0){
+     runOnUiThread(()->info("Hozircha chatlar topilmadi. Telegram sinxronlanishini tekshiring."));
+    }
+    for(long id:ids){
+     client.send(new TdApi.GetChat(id),chatObj->{
+      if(chatObj instanceof TdApi.Chat){
+       TdApi.Chat chat=(TdApi.Chat)chatObj;
        runOnUiThread(()->{
         if(currentChat!=0)return;
         button("💬 "+chat.title,()->openChat(chat.id,chat.title));
@@ -215,40 +219,78 @@ public final class MainActivity extends Activity {
      });
     }
    }else if(result instanceof TdApi.Error){
-    runOnUiThread(()->info("Chatlar: "+((TdApi.Error)result).message));
+    runOnUiThread(()->info("Chatlarni yuklash xatosi: "+((TdApi.Error)result).message));
    }
   });
  }
  private void openChat(long id,String title){
-  currentChat=id;screen(title);
-  button("← Chatlarga qaytish",this::loadChats);
+  currentChat=id;openedTitle=title;
+  screen(title);
+  button("← Xabarlarga qaytish",this::loadChats);
   button("↻ Xabarlarni yangilash",this::loadHistory);
-  button("📦 APKni tekshirish",this::chooseApk);
+  messageList=new LinearLayout(this);
+  messageList.setOrientation(LinearLayout.VERTICAL);
+  view.addView(messageList);
+  EditText compose=new EditText(this);
+  compose.setTextColor(Color.WHITE);
+  compose.setHintTextColor(GREY);
+  compose.setHint("Xabar yozing…");
+  compose.setMinLines(1);compose.setMaxLines(3);
+  view.addView(compose);
+  button("➤ Xabarni yuborish",()->{
+   String body=compose.getText().toString().trim();
+   if(body.isEmpty())return;
+   TdApi.FormattedText text=new TdApi.FormattedText();
+   text.text=body;
+   text.entities=new TdApi.TextEntity[0];
+   TdApi.InputMessageText input=new TdApi.InputMessageText();
+   input.text=text;
+   TdApi.SendMessage sendMessage=new TdApi.SendMessage();
+   sendMessage.chatId=id;sendMessage.inputMessageContent=input;
+   send(sendMessage);
+   compose.setText("");
+   loadHistory();
+  });
   loadHistory();
  }
  private void loadHistory(){
-  if(currentChat==0||client==null)return;
+  if(currentChat==0||client==null||messageList==null)return;
   long id=currentChat;
   TdApi.GetChatHistory fn=new TdApi.GetChatHistory();
   fn.chatId=id;fn.limit=40;fn.offset=0;fn.fromMessageId=0;fn.onlyLocal=false;
   client.send(fn,result->{
    if(!(result instanceof TdApi.Messages))return;
-   TdApi.Message[] messages=((TdApi.Messages)result).messages;
+   TdApi.Message[] msgs=((TdApi.Messages)result).messages;
    runOnUiThread(()->{
-    if(currentChat!=id)return;
-    for(int i=messages.length-1;i>=0;i--){
-     TdApi.Message m=messages[i];String content="[Media]";
+    if(id!=currentChat||messageList==null)return;
+    messageList.removeAllViews();
+    for(int i=msgs.length-1;i>=0;i--){
+     TdApi.Message msg=msgs[i];
      String filename="";String mime="";
-     if(m.content instanceof TdApi.MessageText){
-      content=((TdApi.MessageText)m.content).text.text;
-     }else if(m.content instanceof TdApi.MessageDocument){
-      TdApi.Document doc=((TdApi.MessageDocument)m.content).document;
+     TdApi.Document doc=null;
+     String text="📨 Media";
+     if(msg.content instanceof TdApi.MessageText) {
+      TdApi.FormattedText formatted=((TdApi.MessageText)msg.content).text;
+      text=formatted==null?"":formatted.text;
+     } else if(msg.content instanceof TdApi.MessageDocument) {
+      doc=((TdApi.MessageDocument)msg.content).document;
       if(doc!=null){filename=doc.fileName;mime=doc.mimeType;}
-      content="📎 "+filename;
+      text="📎 "+filename;
      }
-     ThreatRules.Finding f=ThreatRules.message(content,filename,mime);
-     if(f.score>=65)text("⚠️ "+content+"\n"+String.join(" · ",f.reasons),14,RED);
-     else text((m.isOutgoing?"Siz: ":"")+content,14,Color.WHITE);
+     final TdApi.Document selectedDocument=doc;
+     ThreatRules.Finding finding=ThreatRules.message(text,filename,mime);
+     String textContent=(msg.isOutgoing?"Siz: ":"")+text;
+     if(finding.score>=25)textContent+="\n⚠️ "+finding.severity+
+       (finding.reasons.isEmpty()?"":"\n"+String.join(" · ",finding.reasons));
+     if(selectedDocument!=null)textContent+="\n\n👆 Faylni bosib, o'rnatmasdan tekshiring";
+     TextView row=new TextView(this);
+     row.setText(textContent);row.setTextColor(finding.score>=65?RED:Color.WHITE);
+     row.setTextSize(14);row.setPadding(14,15,14,15);
+     row.setBackgroundColor(msg.isOutgoing?0xff143b34:0xff173039);
+     LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+     lp.setMargins(0,6,0,5);
+     messageList.addView(row,lp);
+     if(selectedDocument!=null)row.setOnClickListener(v->inspectTelegramDocument(selectedDocument));
     }
    });
   });

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#061819"/>
+<meta name="description" content="HALLAYM SHIELD: 55 MB gacha APK fayllarini o‘rnatmasdan statik tekshirish."/>
+<title>APK tekshirish — HALLAYM SHIELD</title>
+<link rel="stylesheet" href="/scan-upload.css"/>
+<script defer src="/scan-upload.js"></script>
+</head>
+<body>
+<div class="shell">
+<header><a class="brand" href="/">⬡ HALLAYM <span>SHIELD</span></a><span class="mode">APK STATIC INSPECTOR</span></header>
+<main>
+<section class="hero"><div class="eyebrow">● APK XAVFSIZLIK LABORATORIYASI</div>
+<h1>Telegramdan kelgan APKni<br><em>o‘rnatmasdan tekshiring.</em></h1>
+<p>Fayl ichidagi ZIP tuzilmasi, SHA-256, AndroidManifest.xml, DEX fayllari va native kutubxonalar sonini tahlil qilamiz. Bot API cheklovidan katta bo‘lgan fayllar uchun.</p>
+</section>
+<section class="content">
+<div class="card">
+<div class="step">01 / FAYLNI TANLANG</div>
+<label for="apk" class="picker" id="dropzone"><span class="big">⬡</span><b id="selected">APK faylini tanlash</b><span>Telegram Downloads yoki telefon xotirasidan · eng ko‘pi 55 MB</span><input id="apk" type="file" accept=".apk,application/vnd.android.package-archive"/></label>
+<div class="progress" id="progress" hidden><div class="progress-bar"></div></div>
+<button id="scan" disabled>🛡 Tahlilni boshlash</button>
+<p id="status" role="status" aria-live="polite">Tekshiruvni boshlash uchun faylni tanlang.</p>
+<div class="privacy">🔒 Fayl server diskiga saqlanmaydi. U server xotirasida tahlil qilinadi; hech qachon ishga tushirilmaydi. Maxfiy yoki shaxsiy APKlarni ishonchli bo‘lmagan xizmatlarga yuklamang.</div>
+</div>
+<div class="card result" id="result" hidden>
+<div class="step">02 / STATIK TAHLIL NATIJASI</div>
+<h2 id="verdict">Tekshiruv yakunlandi</h2>
+<p id="explanation"></p>
+<div class="metrics">
+<div><span>SHA-256</span><b id="hash" class="hash">—</b></div>
+<div><span>Hajmi</span><b id="size">—</b></div>
+<div><span>Manifest</span><b id="manifest">—</b></div>
+<div><span>DEX</span><b id="dex">—</b></div>
+<div><span>Native kutubxonalar</span><b id="libraries">—</b></div>
+<div><span>Arxiv elementlari</span><b id="entries">—</b></div>
+</div>
+<h3>Topilgan belgilar</h3><ul id="signals"></ul>
+<p class="small">Muhim: statik ZIP tahlili haqiqiy antivirus tekshiruviga teng emas. Fayl zararli emasligini kafolatlamaydi. APK ichidagi kod xatti-harakati, ruxsatlarning to‘liq tahlili va virus signaturalari hali qo‘shilmagan.</p>
+</div>
+</section>
+<footer><a href="https://t.me/deepfakeuzbot" target="_blank" rel="noopener noreferrer">Telegram botga qaytish</a><span>HALLAYM SHIELD — MUSTAQIL TEXNOLOGIK MVP</span></footer>
+</main>
+</div>
+</body>
+</html>

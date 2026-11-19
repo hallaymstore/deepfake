@@ -66,6 +66,26 @@ function cookie(res,name,value,maxAge){res.cookie(name,value,{httpOnly:true,secu
 function clear(res,name){res.clearCookie(name,{httpOnly:true,secure:isProd,sameSite:"strict",path:"/"});}
 function error(res,status,message){return res.status(status).json({error:message});}
 let db,engine,securityBot;
+async function startSecurityBot(){
+ if(!process.env.TELEGRAM_BOT_TOKEN)return;
+ try{
+  securityBot=await createSecurityBot({db,origin,engine,token:process.env.TELEGRAM_BOT_TOKEN});
+ }catch(err){
+  console.error("Telegram webhook startup failed:",String(err?.message||"unknown").slice(0,300));
+ }
+}
+app.post("/telegram/webhook",(req,res)=>{
+ if(!securityBot)return res.status(503).end();
+ const expected=Buffer.from(securityBot.webhookSecret||"");
+ const provided=Buffer.from(String(req.get("X-Telegram-Bot-Api-Secret-Token")||""));
+ if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected)){
+  return res.status(403).end();
+ }
+ if(!req.body||typeof req.body.update_id!=="number")return res.status(400).end();
+ res.sendStatus(200);
+ setImmediate(()=>securityBot.handleUpdate(req.body).catch(err=>
+  console.error("Telegram update failed:",String(err?.message||"unknown").slice(0,250))));
+});
 async function signedIn(req,res,next){
  if(!db)return error(res,503,"MongoDB sozlanmagan");
  const token=getCookie(req,authCookie);
@@ -242,10 +262,7 @@ async function main(){
  engine=createTelegramEngine({db,apiId,apiHash,key,retentionDays:process.env.EVENT_RETENTION_DAYS||7,onRisk:broadcast});
  if(telegramReady)await engine.restore();
  else console.warn("Telegram API variables missing; QR login disabled until configured");
- if(process.env.TELEGRAM_BOT_TOKEN){
-  try{securityBot=await createSecurityBot({db,origin,engine,token:process.env.TELEGRAM_BOT_TOKEN});}
-  catch(err){console.error("Security bot unavailable:",err.message);}
- }
+ await startSecurityBot();
  const port=Number(process.env.PORT||3000);
  const server=app.listen(port,"0.0.0.0",()=>console.log("HALLAYM SHIELD listening on",port));
  const stop=async()=>{server.close();securityBot?.stop();await engine.stopAll();await client.close();process.exit(0);};
@@ -253,14 +270,18 @@ async function main(){
 }
 if(require.main===module){
  if(!configured){
-  const port=Number(process.env.PORT||3000);
-  app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD setup mode: MongoDB and encryption key are not configured"));
+  startSecurityBot().finally(()=>{
+   const port=Number(process.env.PORT||3000);
+   app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD: standalone Telegram file/URL bot and dashboard; MTProto monitoring disabled"));
+  });
  }else{
   main().catch(e=>{
    console.error("Database startup failed:",e.message);
    db=null;engine=null;
-   const port=Number(process.env.PORT||3000);
-   app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD fallback: local link checker only"));
+   startSecurityBot().finally(()=>{
+    const port=Number(process.env.PORT||3000);
+    app.listen(port,"0.0.0.0",()=>console.warn("HALLAYM SHIELD fallback: standalone Telegram file/URL bot"));
+   });
   });
  }
 }

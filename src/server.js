@@ -11,6 +11,7 @@ const {StringSession}=require("teleproto/sessions");
 const {analyse,encrypt,hash}=require("./analyzer");
 const {createTelegramEngine}=require("./telegram");
 const {createSecurityBot}=require("./security-bot");
+const {inspectApkBuffer,MAX_APK_BYTES}=require("./apk-inspect");
 
 const mongoUri=process.env.MONGODB_URI||"";
 const dbName=process.env.MONGODB_DB||"hallaym_shield_deepfake";
@@ -41,7 +42,7 @@ app.use("/api",(req,res,next)=>{
  }
  next();
 });
-const attempt=new Map(),guests=new Map(),streams=new Map();
+const attempt=new Map(),guests=new Map(),streams=new Map(),uploads=new Map();
 const guestCookie="shield_guest",authCookie="shield_auth";
 const now=()=>Date.now();
 const limit=100;
@@ -108,6 +109,30 @@ app.post("/api/check",(req,res)=>{
  const txt=String(req.body?.text||"").slice(0,10000);
  if(!txt.trim())return error(res,400,"Tekshirish uchun matn kiriting");
  res.json({...analyse(txt),method:"rule-based",note:"AI yoki antivirus xulosasi emas"});
+});
+app.post("/api/upload-apk",express.raw({type:"application/octet-stream",limit:"55mb"}),async(req,res)=>{
+ const today=Date.now();const ip=req.ip;
+ let count=uploads.get(ip);
+ if(!count||today-count.at>10*60000)count={at:today,n:0};
+ count.n++;uploads.set(ip,count);
+ if(uploads.size>10000){
+  for(const [k,v] of uploads)if(today-v.at>10*60000)uploads.delete(k);
+ }
+ if(count.n>5)return error(res,429,"10 daqiqada ko'p fayl tekshirilmoqda. Keyinroq urinib ko'ring.");
+ if(!Buffer.isBuffer(req.body)||req.body.length===0)return error(res,400,"APK fayl yuborilmadi");
+ if(req.body.length>MAX_APK_BYTES)return error(res,413,"Fayl 55 MB chegarasidan katta");
+ let name="Tanlangan APK";
+ try{
+  name=decodeURIComponent(String(req.get("X-File-Name")||"apk")).split(/[\\/]/).at(-1).slice(0,128);
+ }catch{}
+ if(!/\.apk$/i.test(name))return error(res,400,"Faqat APK fayllari qabul qilinadi");
+ try{
+  const report=await inspectApkBuffer(req.body,name);
+  res.json({...report,scope:"static_zip_only",deletedFromMemoryAfterRequest:true});
+ }catch(e){
+  console.error("APK scan error:",String(e?.message||"error").slice(0,150));
+  return error(res,400,"APK faylni tahlil qilish amalga oshmadi");
+ }
 });
 app.post("/api/connect/start",async(req,res)=>{
  if(!configured||!telegramReady)return error(res,503,"Telegram va MongoDB API kalitlari Render Environment sozlamalarida to'ldirilishi kerak");

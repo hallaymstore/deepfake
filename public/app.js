@@ -1,6 +1,18 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const state={connected:false,eventSource:null,poller:null,noticeTimer:null};
+let pairingToken="";
+try{
+ const u=new URL(window.location.href);
+ pairingToken=u.searchParams.get("pair")||"";
+ if(pairingToken){u.searchParams.delete("pair");window.history.replaceState(null,"",u.pathname+u.search+u.hash);}
+}catch{}
+async function finishPair(){
+ if(!/^[a-f0-9]{48}$/.test(pairingToken))return;
+ const pending=pairingToken;pairingToken="";
+ try{await api("/api/bot/pair","POST",{pair:pending});notice("✅ Telegram bot himoyasi akkauntingizga ulandi.");}
+ catch(e){notice("Botni ulash: "+e.message);}
+}
 async function api(url,method="GET",body){
  const opt={method,credentials:"same-origin",headers:{}};
  if(body!==undefined){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body);}
@@ -74,7 +86,7 @@ async function status(){
   if(s.status==="connected"){
    clearInterval(state.poller);state.poller=null;
    setConnected(true);$("qr-block").classList.add("hidden");
-   await refresh();startEvents();return;
+   await refresh();startEvents();await finishPair();return;
   }
   if(s.status==="qr_ready"&&s.qr){
    $("qr").src=s.qr;$("qr-block").classList.remove("hidden");

@@ -7,7 +7,7 @@ test("security bot: high pressure SMS text warned",()=>{
  assert.match(reportUrl("Zudlik bilan SMS kodni yuboring"),/Shubhali|Yuqori xavf/);
 });
 test("security bot: safe text not certified secure",()=>{
- assert.match(reportUrl("Salom"),/xavfsizligini isbotlamaydi/);
+ assert.match(reportUrl("Salom"),/xavfsizlik xulosasi berilmaydi/);
 });
 test("APK scanner: non-ZIP flagged without execution",async()=>{
  const result=await inspectApkBuffer(Buffer.from("not a zip"),"sample.apk");

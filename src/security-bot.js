@@ -4,6 +4,22 @@ const {Telegraf}=require("telegraf");
 const {analyse}=require("./analyzer");
 const {inspectApkBuffer,riskText,MAX_APK_BYTES}=require("./apk-inspect");
 const REASONS_LIMIT=5;
+/** Inspect visible text, Telegram text_link entities and available inline button URLs. */
+function extractScanText(message){
+ if(!message)return "";
+ const visible=String(message.text||message.caption||"");
+ const extra=[];
+ for(const entity of [...(message.entities||[]),...(message.caption_entities||[])]){
+  if(typeof entity?.url==="string"&&/^https?:\/\//i.test(entity.url))extra.push(entity.url);
+ }
+ for(const row of message.reply_markup?.inline_keyboard||[]){
+  for(const button of row){
+   if(typeof button?.url==="string"&&/^https?:\/\//i.test(button.url))extra.push(button.url);
+  }
+ }
+ return [visible,...new Set(extra.slice(0,30))].join("\n").slice(0,10000);
+}
+
 function reportUrl(text){
  const value=analyse(text);
  const label=value.level==="high"?"🔴 Yuqori xavf belgisi":value.level==="warning"?"🟠 Shubhali belgilar":"⚪ Aniq xavf belgisi topilmadi";
@@ -115,7 +131,7 @@ async function createSecurityBot({db=null,origin,engine=null,token}){
  async function inspectMessage(ctx,target){
   if(!target)return ctx.reply("Tekshirish uchun xabarga reply qiling yoki menga fayl/havolani yuboring.");
   if(isRateLimited(String(ctx.from?.id||ctx.chat?.id)))return ctx.reply("Bir daqiqalik limitga yetdingiz.");
-  const text=String(target.text||target.caption||"").slice(0,10000);
+  const text=extractScanText(target);
   const document=target.document;
   let answer="";
   if(text)answer+=reportUrl(text);
@@ -149,6 +165,15 @@ async function createSecurityBot({db=null,origin,engine=null,token}){
  });
  bot.catch((err)=>console.error("Security bot error:",err?.message||"unknown"));
  const secret=crypto.createHash("sha256").update(token).digest("hex");
+ bot.telegram.setMyCommands([
+  {command:"start",description:"Xavfsizlik botini boshlash"},
+  {command:"scan",description:"Javob berilgan xabarni tekshirish"},
+  {command:"connect",description:"Shaxsiy himoyani ulash"},
+  {command:"status",description:"Monitoring holati"},
+  {command:"pause",description:"Monitoringni to'xtatish"},
+  {command:"resume",description:"Monitoringni yoqish"},
+  {command:"unlink",description:"Akkauntni uzish"}
+ ]).catch(err=>console.warn("Bot commands not set:",err?.message));
  await bot.telegram.setWebhook(origin+"/telegram/webhook",{
   secret_token:secret,
   allowed_updates:["message"]
@@ -172,4 +197,4 @@ async function createSecurityBot({db=null,origin,engine=null,token}){
   stop(){/* Webhook needs no polling process to stop */}
  };
 }
-module.exports={createSecurityBot,reportUrl,isRateLimited};
+module.exports={createSecurityBot,reportUrl,isRateLimited,extractScanText};

@@ -1,10 +1,10 @@
 "use strict";
 const crypto=require("node:crypto");
 const yauzl=require("yauzl");
-const MAX_APK_BYTES=18*1024*1024;
+const MAX_APK_BYTES=55*1024*1024;
 function inspectApkBuffer(data,name="telegram.apk"){
  if(!Buffer.isBuffer(data))return Promise.reject(Error("Binary buffer expected"));
- if(data.length>MAX_APK_BYTES)return Promise.reject(Error("APK hajmi 18 MB limitidan katta"));
+ if(data.length>MAX_APK_BYTES)return Promise.reject(Error("APK hajmi 55 MB limitidan katta"));
  const sha256=crypto.createHash("sha256").update(data).digest("hex");
  return new Promise((resolve)=>{
   const report={name:String(name).slice(0,180),sha256,bytes:data.length,validZip:false,

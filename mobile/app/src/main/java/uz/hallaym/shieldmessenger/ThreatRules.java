@@ -28,7 +28,7 @@ public final class ThreatRules {
   List<String> reasons = new ArrayList<>();
   int score = 0;
   if (APK.matcher(fn).find() || APK.matcher(text).find()) {
-   score += 65; reasons.add("Telegram orqali APK o'rnatish fayli: o'rnatishdan oldin tekshiring");
+   score += 40; reasons.add("Telegram orqali APK o'rnatish fayli: bu zararli ekanini isbotlamaydi, lekin tekshirish kerak");
   } else if (EXE.matcher(fn).find()) {
    score += 65; reasons.add("Bajariluvchi/skript fayl kengaytmasi");
   }

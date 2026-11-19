@@ -3,6 +3,7 @@ const {TelegramClient}=require("teleproto");
 const {StringSession}=require("teleproto/sessions");
 const {NewMessage}=require("teleproto/events");
 const {inspect,decrypt,senderHash}=require("./analyzer");
+const {inspectApkBuffer,MAX_APK_BYTES}=require("./apk-inspect");
 
 function createTelegramEngine({db,apiId,apiHash,key,retentionDays,onRisk}){
  const accounts=db.collection("accounts");
@@ -10,10 +11,38 @@ function createTelegramEngine({db,apiId,apiHash,key,retentionDays,onRisk}){
  const active=new Map();
  const settings={apiId:Number(apiId),apiHash};
  const ttl=Math.max(1,Math.min(30,Number(retentionDays)||7))*86400000;
- async function analyseIncoming(account,event){
+ async function analyseIncoming(account,event,client){
    const msg=event?.message;
    if(!msg||msg.out||!event.isPrivate)return;
    const risk=inspect(msg.message||"",msg);
+   const f=risk.file;
+   const apk=Boolean(f&&(f.extension==="apk"||f.mime==="application/vnd.android.package-archive"));
+   if(apk){
+    if(f.size>0&&f.size<=MAX_APK_BYTES){
+     try{
+      const data=await client.downloadMedia(msg,{});
+      if(!data||data.length>MAX_APK_BYTES)throw Error("APK yuklash limiti");
+      const scan=await inspectApkBuffer(Buffer.from(data),"Telegram APK");
+      risk.file={
+       ...f,scanStatus:"zip_static_checked",
+       sha256:scan.sha256,manifestFound:scan.hasManifest,
+       dexFiles:scan.dexFiles,nativeLibraries:scan.nativeLibraries,
+       archiveEntries:scan.totalEntries,zipSignals:scan.suspicious
+      };
+      if(scan.suspicious.length){
+       risk.score=Math.max(risk.score,60);
+       risk.reasons=[...new Set([...risk.reasons,...scan.suspicious])].slice(0,12);
+       risk.level="high";
+      }
+     }catch(e){
+      risk.file.scanStatus="download_or_scan_failed";
+      risk.file.detail="APK mazmuni to'liq tekshirilmagan";
+     }
+    }else{
+     risk.file.scanStatus="file_size_not_scanned";
+     risk.file.detail="APK hajmi xavfsiz skan limitiga mos emas";
+    }
+   }
    const record={
      accountId:account.telegramId,
      type:risk.file?"file":"message",risk:risk.level,score:risk.score,
@@ -38,7 +67,7 @@ function createTelegramEngine({db,apiId,apiHash,key,retentionDays,onRisk}){
      await client.disconnect();return;
     }
    }
-   const handler=ev=>{analyseIncoming(account,ev).catch(err=>console.error("Scan error:",err.message));};
+   const handler=ev=>{analyseIncoming(account,ev,client).catch(err=>console.error("Scan error:",err.message));};
    client.addEventHandler(handler,new NewMessage({incoming:true}));
    active.set(account.telegramId,{client,handler});
   }catch(e){await client.disconnect().catch(()=>{});throw e;}

@@ -40,15 +40,17 @@ async function telegramFileBuffer(bot,fileId,size){
   return Buffer.concat(chunks,bytes);
  }finally{clearTimeout(timeout);}
 }
-async function createSecurityBot({db,origin,engine,token}){
+async function createSecurityBot({db=null,origin,engine=null,token}){
  if(!token)return null;
  const bot=new Telegraf(token,{handlerTimeout:35000});
  const botMe=await bot.telegram.getMe();
  const name=botMe.username;
- const accounts=db.collection("accounts");
- const links=db.collection("botLinkRequests");
- await links.createIndex({tokenHash:1},{unique:true});
- await links.createIndex({expiresAt:1},{expireAfterSeconds:0});
+ const accounts=db?.collection("accounts")||null;
+ const links=db?.collection("botLinkRequests")||null;
+ if(links){
+  await links.createIndex({tokenHash:1},{unique:true});
+  await links.createIndex({expiresAt:1},{expireAfterSeconds:0});
+ }
  const onlyPrivate=ctx=>ctx.chat?.type==="private";
  async function start(ctx){
   if(!onlyPrivate(ctx))return ctx.reply("Ulanish uchun botning shaxsiy chatiga o'ting.");
@@ -63,6 +65,7 @@ async function createSecurityBot({db,origin,engine,token}){
  bot.command("help",start);
  bot.command("connect",async ctx=>{
   if(!onlyPrivate(ctx))return ctx.reply("Faqat bot bilan shaxsiy chatda foydalaning.");
+  if(!links||!engine)return ctx.reply("ℹ️ QR orqali 24/7 akkaunt monitoringi hozircha sozlanmoqda. Hozir APK yoki havolani menga yuboring — men tekshiraman. Telegram kodlarini botga yubormang.");
   const raw=crypto.randomBytes(24).toString("hex");
   const t=Date.now();
   await links.insertOne({tokenHash:crypto.createHash("sha256").update(raw).digest("hex"),
@@ -76,6 +79,7 @@ async function createSecurityBot({db,origin,engine,token}){
  });
  bot.command("status",async ctx=>{
   if(!onlyPrivate(ctx))return;
+  if(!accounts||!engine)return ctx.reply("✅ Botning fayl/havola tekshiruvi faol. Akkaunt monitoringi server bazasi va Telegram API kalitlari sozlanmagani uchun hozircha faol emas.");
   const a=await accounts.findOne({telegramId:String(ctx.from.id),botChatId:String(ctx.chat.id)});
   if(!a)return ctx.reply("Avtomatik monitoring ulanmagan. /connect");
   return ctx.reply("🛡 Monitoring: "+(a.monitoring?"YOQILGAN":"TO'XTATILGAN")+
@@ -85,6 +89,7 @@ async function createSecurityBot({db,origin,engine,token}){
  for(const [command,enabled] of [["pause",false],["resume",true]]){
   bot.command(command,async ctx=>{
    if(!onlyPrivate(ctx))return;
+   if(!accounts||!engine)return ctx.reply("Avtomatik monitoring hali sozlanmagan. Fayl yoki havolani botga yuborib tekshiring.");
    const id=String(ctx.from.id);
    const a=await accounts.findOne({telegramId:id,botChatId:String(ctx.chat.id)});
    if(!a)return ctx.reply("Avval /connect orqali shaxsiy monitoringni ulang.");
@@ -95,6 +100,7 @@ async function createSecurityBot({db,origin,engine,token}){
  }
  bot.command("unlink",async ctx=>{
   if(!onlyPrivate(ctx))return;
+  if(!accounts||!engine)return ctx.reply("Bu akkauntga Telegram monitoring sessiyasi ulanmagan.");
   const id=String(ctx.from.id);
   const a=await accounts.findOne({telegramId:id,botChatId:String(ctx.chat.id)});
   if(!a)return ctx.reply("Ulangan akkaunt topilmadi.");
@@ -142,10 +148,18 @@ async function createSecurityBot({db,origin,engine,token}){
   }
  });
  bot.catch((err)=>console.error("Security bot error:",err?.message||"unknown"));
- await bot.launch({dropPendingUpdates:true});
+ const secret=crypto.createHash("sha256").update(token).digest("hex");
+ await bot.telegram.setWebhook(origin+"/telegram/webhook",{
+  secret_token:secret,
+  allowed_updates:["message"]
+ });
+ console.log("HALLAYM SHIELD webhook bot connected @"+name);
  return {
   username:name,
+  webhookSecret:secret,
+  handleUpdate:(update)=>bot.handleUpdate(update),
   async notify(telegramId,event){
+   if(!accounts)return;
    const acc=await accounts.findOne({telegramId});
    if(!acc?.botChatId||!acc?.monitoring||event.risk==="low")return;
    const msg=(event.risk==="high"?"🔴 Yuqori xavf":"🟠 Shubhali xabar")+
@@ -155,7 +169,7 @@ async function createSecurityBot({db,origin,engine,token}){
     "\nℹ️ Foydalanuvchiga xabar matni yuborilmadi; qoidaviy baholash xavfsizlik kafolati emas.";
    await bot.telegram.sendMessage(acc.botChatId,msg);
   },
-  stop(){bot.stop("shutdown");}
+  stop(){/* Webhook needs no polling process to stop */}
  };
 }
 module.exports={createSecurityBot,reportUrl,isRateLimited};

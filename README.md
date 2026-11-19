@@ -1,3 +1,32 @@
+# HALLAYM SHIELD — Multi-user Telegram Security Bot + Opt-in Monitoring (MVP)
+
+**GitHub:** https://github.com/hallaymstore/deepfake  
+**Dashboard:** https://hallaym-shield-deepfake.onrender.com
+
+## New bot workflow (Node.js)
+
+Bot feature code: src/security-bot.js and src/apk-inspect.js
+
+1. Create **your own new bot** in @BotFather. Never reuse a bot token from another active service.
+2. Configure its token in Render environment: TELEGRAM_BOT_TOKEN. Add MONGODB_URI, TELEGRAM_API_ID, TELEGRAM_API_HASH and stable SESSION_ENCRYPTION_KEY. Never commit these secrets.
+3. Bot /start → /connect generates a 10-minute single-use pairing link.
+4. User voluntarily authorizes their *own* Telegram account through the existing secure QR web page. The bot does not ask for, receive or record Telegram login codes or 2FA passwords.
+5. Server compares Telegram account ID with the bot user who initiated the link. Only an exact match can bind monitoring to that bot chat.
+6. New incoming private messages and links are inspected using explainable heuristic rules. APK files (up to 18 MB) can undergo a restricted ZIP structure scan, SHA-256 hash, manifest-presence, DEX and native-library inventory. High/warning events are sent to the linked user's personal bot chat, without copying message text.
+7. Users can /status, /pause, /resume or /unlink. /unlink revokes the server-held Telegram session and deletes that account's related logs.
+8. Users can forward suspicious texts, URLs or APK files directly to the bot, or reply /scan to a message in a supported bot-visible chat. Telegram privacy and Guest Mode rules constrain which messages a bot can access.
+
+**What is actually analyzed?** URL patterns, file type metadata, archived APK entries and SHA-256. This is **not** a virus signature engine, sandbox, permission analysis, proof of infection or deepfake AI.
+
+**Important restrictions:**
+- Telegram QR linking requires another authorized Telegram device. Phone+code login through a secure Mini App has **not** been implemented yet.
+- Existing user monitoring inspects new incoming **private** non-secret chats only; no Secret Chats, full historical scraping, groups or channels.
+- Render Free sleeps; not 24/7. For genuine continuous monitoring move the worker to a paid always-on host or VPS and add multi-instance locking.
+- A Telegram login session is a full-capability account credential: full transparency, encryption, secure deployment, rate controls, privacy policy, audit and user-initiated revocation are mandatory.
+- Never use OTP codes in chat, delete user files without confirmation, or submit private Telegram content to external AI services without valid legal/contractual grounds. See Telegram terms: https://core.telegram.org/api/terms
+
+---
+
 # HALLAYM SHIELD — Telegram & Phishing Security MVP
 
 **Live prototype:** https://hallaym-shield-deepfake.onrender.com  

@@ -32,46 +32,37 @@ public final class MainActivity extends Activity {
  private long currentChat=0;
  private final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
 
+ private LinearLayout messageList;
+ private String openedTitle="";
+
  @Override public void onCreate(Bundle bundle) {
   super.onCreate(bundle);
-  screen("HALLAYM SHIELD Messenger");
-  info("Telefonning o'zida Telegram TDLib orqali ishlaydigan boshlang'ich klient. Xabarlar Render serverga uzatilmaydi.");
+  getWindow().setStatusBarColor(BACK);
+  getWindow().setNavigationBarColor(0xff050b10);
   apiId=BuildConfig.TELEGRAM_API_ID;
   apiHash=BuildConfig.TELEGRAM_API_HASH;
-  if(apiId==0 || apiHash.length()!=32){
-   apiId=getPreferences(MODE_PRIVATE).getInt("dev_api_id",0);
-   apiHash=getPreferences(MODE_PRIVATE).getString("dev_api_hash","");
-  }
-  if(apiId<=0 || apiHash.length()!=32){
-   configureApi();
-   return;
-  }
-  startClient();
+  welcome();
  }
- private void configureApi(){
-  screen("Telegram dasturchi sozlamasi");
-  info("Bu test yig'ilmasi: my.telegram.org saytidan olingan API ID va API HASHni shu telefonning o'zida kiriting. Oddiy foydalanuvchiga mo'ljallangan versiyada bular build vaqtida kiritiladi.");
-  EditText idText=new EditText(this);
-  idText.setHint("API ID");idText.setInputType(InputType.TYPE_CLASS_NUMBER);
-  idText.setTextColor(Color.WHITE);view.addView(idText);
-  EditText hashText=new EditText(this);
-  hashText.setHint("API HASH (32 belgi)");hashText.setSingleLine();
-  hashText.setTextColor(Color.WHITE);view.addView(hashText);
-  button("Telegram klientini boshlash",()->{
-   try{
-    int n=Integer.parseInt(idText.getText().toString().trim());
-    String h=hashText.getText().toString().trim();
-    if(n<=0||!h.matches("[0-9a-fA-F]{32}"))throw new IllegalArgumentException();
-    apiId=n;apiHash=h;
-    getPreferences(MODE_PRIVATE).edit().putInt("dev_api_id",n).putString("dev_api_hash",h).apply();
-    hashText.setText("");startClient();
-   }catch(Exception ex){info("API ID raqam, HASH esa 32 ta hexadecimal belgi bo'lishi kerak.");}
-  });
-  button("📦 Faqat APKni tekshirish",this::chooseApk);
+ private void welcome(){
+  screen("Himoyalangan Telegram");
+  text("XABARLAR • XAVFSIZLIK • APK",11,MINT);
+  text("Telegram bilan oddiy telefon raqamingiz orqali kiring. Telegram dasturchi kodlari foydalanuvchilardan so'ralmaydi.",16,Color.WHITE);
+  info("Yangi xabarlarni ko'rish, shubhali fayllarni belgilash va Telegramdan kelgan APK tarkibini uni o'rnatmasdan tekshirish.");
+  button("➜ Telegram akkauntimga kirish",this::startClient);
+  button("📦 Telefondagı APKni tekshirish",this::chooseApk);
+  info("HALLAYM SHIELD mustaqil klient. Telegram sessiyasi va xabarlaringiz ushbu qurilmada saqlanadi. APK tekshiruvi zararli dasturni 100% aniqlash kafolati emas.");
  }
  private void startClient(){
+  if(apiId<=0 || apiHash==null || !apiHash.matches("[a-fA-F0-9]{32}")){
+   new AlertDialog.Builder(this).setTitle("Telegram ulanishi sozlanmagan")
+    .setMessage("Ushbu test APKga Telegram ishlab chiquvchisining API konfiguratsiyasi kiritilmagan. "+
+      "Oddiy foydalanuvchidan API ID yoki HASH so'ralmaydi. "+
+      "Ilova ishlab chiquvchisi bir marta ilovani Telegram API kalitlari bilan build qiladi.")
+    .setPositiveButton("Tushunarli",null).show();
+   return;
+  }
   screen("Telegramga ulanish");
-  info("Telegram TDLib sessiyasi faqat shu telefonda. Chat matnlari Render serveriga yuborilmaydi.");
+  info("Telefon raqamingizni tasdiqlang. Login kodlari Render serveriga uzatilmaydi.");
   try{
    System.loadLibrary("tdjni");
    client=Client.create(this::update,null,null);
@@ -261,6 +252,84 @@ public final class MainActivity extends Activity {
     }
    });
   });
+ }
+ private void inspectTelegramDocument(TdApi.Document doc){
+  if(doc==null||doc.document==null){info("Fayl mavjud emas");return;}
+  String name=doc.fileName==null?"":doc.fileName;
+  String mime=doc.mimeType==null?"":doc.mimeType;
+  boolean apk=name.toLowerCase(java.util.Locale.ROOT).endsWith(".apk") ||
+   "application/vnd.android.package-archive".equalsIgnoreCase(mime);
+  if(!apk){
+   new AlertDialog.Builder(this).setTitle("Fayl turi")
+    .setMessage("Hozirgi versiya faqat APK faylining ichki tuzilishini tekshiradi. Bu fayl APK emas.")
+    .setPositiveButton("Yopish",null).show();
+   return;
+  }
+  new AlertDialog.Builder(this).setTitle("🛡️ "+name)
+    .setMessage("APKni dastur sifatida O'RNATMASDAN, Telegram keshiga yuklab, "+
+      "SHA-256, ZIP tuzilmasi, manifest ruxsatlari, DEX va native kutubxonalarni mahalliy tahlil qilamiz.\n\n"+
+      "Fayl telefoningizdagi HALLAYM SHIELD shaxsiy xotirasida qoladi, serverga yuborilmaydi.")
+    .setNegativeButton("Bekor qilish",null)
+    .setPositiveButton("Yuklab tekshirish",(dialog,which)->downloadAndInspect(doc))
+    .show();
+ }
+ private void downloadAndInspect(TdApi.Document doc){
+  if(client==null||doc.document==null)return;
+  final String name=doc.fileName==null?"Telegram.apk":doc.fileName;
+  new AlertDialog.Builder(this).setTitle("Fayl tekshirilmoqda")
+    .setMessage("Yuklab olish va tahlil boshlanmoqda. Fayl ishga tushirilmaydi.")
+    .setPositiveButton("Tushunarli",null).show();
+  TdApi.DownloadFile fn=new TdApi.DownloadFile();
+  fn.fileId=doc.document.id;
+  fn.priority=32;
+  fn.offset=0;
+  fn.limit=0;
+  fn.synchronous=true;
+  client.send(fn,result->{
+   if(!(result instanceof TdApi.File)){
+    runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Yuklash xatosi")
+     .setMessage(result instanceof TdApi.Error?((TdApi.Error)result).message:
+       "Faylni tekshirish uchun yuklab bo'lmadi.")
+     .setPositiveButton("Yopish",null).show());
+    return;
+   }
+   TdApi.File file=(TdApi.File)result;
+   if(file.local==null || !file.local.isDownloadingCompleted || file.local.path==null){
+    runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Fayl yuklanmadi")
+     .setMessage("Yuklab olish yakunlanmadi. Qayta urinib ko'ring.")
+     .setPositiveButton("Yopish",null).show());
+    return;
+   }
+   final String path=file.local.path;
+   worker.execute(()->{
+    try {
+     ApkInspector.Report report=ApkInspector.scanTelegramFile(this,path,name);
+     runOnUiThread(()->showApkReport(report));
+    }catch(Exception e){
+     runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Tahlil xatosi")
+      .setMessage(e.getMessage()).setPositiveButton("Yopish",null).show());
+    }
+   });
+  });
+ }
+ private void showApkReport(ApkInspector.Report r){
+  String reasons=r.finding.reasons.isEmpty()
+     ?"Qoidaviy tekshiruv aniq xavf belgisini aniqlamadi. Bu xavfsizlik kafolati emas."
+     :String.join("\n• ",r.finding.reasons);
+  String summary="FAYL: "+r.name+"\nHolat: "+r.finding.severity+
+   " ("+r.finding.score+"/100)\n\n"+
+   "SHA-256: "+r.sha256+
+   "\nPackage: "+r.packageName+
+   "\nHajm: "+r.size+" bayt"+
+   "\nArxiv elementlari: "+r.entries+
+   "\nDEX modullari: "+r.dexFiles+
+   "\nNative (.so) kutubxonalar: "+r.nativeLibraries+
+   "\nAssets elementlari: "+r.assets+
+   "\n\nBELGILAR\n• "+reasons+
+   "\n\nSO'RALGAN RUXSATLAR\n"+(r.permissions.isEmpty()?"Aniqlanmadi":String.join("\n",r.permissions))+
+   "\n\nXulosa avtomatik ekspertiza emas: o'rnatishdan oldin tekshiring. Hech narsa ishga tushirilmaydi yoki o'chirilmaydi.";
+  new AlertDialog.Builder(this).setTitle("APK xavfsizlik hisoboti")
+   .setMessage(summary).setPositiveButton("Yopish",null).show();
  }
  private void chooseApk(){
   Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT);
